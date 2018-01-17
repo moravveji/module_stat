@@ -1,7 +1,5 @@
 # Statistics of the Used Modules on KULeuven VSC
 
-[TOC]
-
 ## About
 This python package counts the number of times different available modules are loaded in all PBS job scripts which are submitted to the MOAB scheduler. Different modules define different classes, which contain data and methods to contain the resource requirements/used of a job (in `job_xml.py` file), and the module toolchain and loads (in `modules.py` file). Then, a child class is built (in `scripts.py` file) that is used to process each script. A basic use of the package is the following (though you may combine much more intricate attributes of the `scripts.script` class).
 
