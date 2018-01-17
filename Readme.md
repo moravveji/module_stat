@@ -6,7 +6,7 @@
 This python package counts the number of times different available modules are loaded in all PBS job scripts which are submitted to the MOAB scheduler. Different modules define different classes, which contain data and methods to contain the resource requirements/used of a job (in `job_xml.py` file), and the module toolchain and loads (in `modules.py` file). Then, a child class is built (in `scripts.py` file) that is used to process each script. A basic use of the package is the following (though you may combine much more intricate attributes of the `scripts.script` class).
 
 ## Basic Use
-The following example block shows how to enumerate the number of module loads in a repository of job scripts, and to write down the ranking list to an ASCII file. The purpose of this example is to show the preferred use of `with` statements, and the `try/except` blocks. 
+The following example block shows how to enumerate the number of module loads in a repository of job scripts, and to write down the ranking list to an ASCII file. The purpose of this example is to show the preferred use of `with` statements, and the `try` and `except` blocks. 
 
 ```python
 import sys, os, glob
@@ -59,5 +59,12 @@ if __name__ == '__main__':
   sys.exit(status)
 ```
 
-## Content
+## Module Contents
+The following modules are defined in this package:
++ `job_xml` provides the `JB` class to read and manipulate the .JB XML files created by MOAB for those jobs that are successfully scheduled by the scheduler.
++ `modules` provides the `module` class to manipulate the .SC PBD job scripts, and to extract the toolchain year and the whole list of loaded modules from that file. There is a difficulty to consistently collect loaded modules with a correct toolchain in some job scripts, for the following two reasons:
+  1. some users hard-code their choice of toolchain in their `.bashrc` or their `.bash_profile` files, which for now I do not touch. For this reason, I loose track of the correct toolchain year, and I take the default as 2014.
+  2. some users swap between different toolchain years more than once, and juggle with the `module load` and `module purge` repeatedly. This also complicates the statistics of specific version of a software too difficult.
++ `scripts` provides a child class `script` from the two `JB` and `module` classes, and takes care of the manipulation of the .SC and .JB files under the hood.
++ `stats` provides the `stat` class to count the number of times any module is loaded
 
