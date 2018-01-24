@@ -3,4 +3,4 @@
 *log
 *.txt
 __pycache__
-bashrc.py
+bashrc.py*
