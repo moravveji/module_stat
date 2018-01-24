@@ -67,6 +67,7 @@ The following modules are defined in this package:
 + `stats` provides the `stat` class to count the number of times any module is loaded
 + `bashrc`
 + `test_module_stat` is a basic test suite for different functionalities and modules
++ `run_module_stat` provides few runtime examples for using this package
 
 ## Dependencies
 + Python 3.6

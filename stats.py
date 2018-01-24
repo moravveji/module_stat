@@ -35,16 +35,21 @@ class stats:
                      and the values enumerating the total number of times this specific
                      module is loaded. E.g.
                      self.version_counter = {..., '2015/Java/1.8.0_31': 123, ...}
+    + executables:   dictionary which collects the name of the executables of any module (as key)
+                     and assigns that to the module name (as the value). This is done by searching
+                     into the "bin" folder of the modules folder.
     """
     self.avail_toolchain = [2014, 2015, 2016]
     self.avail_modules   = {toolchain: list() for toolchain in self.avail_toolchain}
     self.module_counter  = dict()
     self.version_counter = dict()
+    self.executables     = dict()
 
     # Allocate the attributes above
     self.__set_avail_modules()
     self.__set_dic_module_counter()
     self.__set_dic_version_counter()
+#    self.__set_dic_executables()
 
   #---------------------
   def __enter__(self):
@@ -95,6 +100,137 @@ class stats:
     """
     for toolchain in self.avail_toolchain:
       self.avail_modules[toolchain] = self.get_avail_modules(toolchain)
+
+  #---------------------
+  def __set_dic_executables(self):
+    """
+    Set the self.executables attribute to the dictionary returned from calling the public
+    method get_dic_executables()
+    """
+    if self.executables: return  # executables are already available; why bother?
+    self.executables = self.get_dic_executables().copy()
+
+  #---------------------
+  def get_dic_executables(self):
+    """
+    Walks through all modules in all toolchains, and searches for the "bin" or "bin64" folder under 
+    all possible versions of that software. If the software/module has a "bin/bin64" folder, 
+    then, the name of the executable is taken as the key, and name of the module is taken
+    as the value of the dictionary. 
+    E.g. the "R" package has a "bin" folder (for any of the toolchains and/or versions), and
+    inside that, there are two executable files, called "R" and "Rscript". As a result, the
+    self.executable dictionary would have two extra items (key/value) pairs as:
+    self.executable = {..., 'R': 'R', 'Rscript': 'R', ...}. 
+
+    Note: Two cases happen:
+      + case a. The software has a bin/bin64 folder (or both), just right under the version folder
+      + case b. The software might have a bin/bin64 (or both), but they are digged under folder 
+                hierarchy, or there are multiple bin/bin64 folders available for a single version
+    We treat both cases here.
+
+    Note: calling this public method takes few minutes, so, one may write the outcome as an ASCII
+          file and recycle that file later on. This ASCII file must be updated once in a while.
+          For that, see the public method: write_dic_executables()
+    """
+    dic = dict()
+
+    #%%%%%%%%%%%%%%%%%%
+    def print_this(ex, k, v):
+      """ just define a local printing convenience function """
+      print('{0}: {1}, {2}'.format(ex, k, v))
+    #%%%%%%%%%%%%%%%%%%
+
+    def add_key_val(key, val):
+      """ add a key/val pair to self.executables if the key fulfils some requirements """
+      flag_dat = '.dat' in key
+      flag_txt = '.txt' in key
+      flag_so  = '.so'  in key
+      flag_conf= '.conf' in key or '.config' in key
+      flag_cmd = '.cmd' in key
+      flags    = [flag_dat, flag_txt, flag_so, flag_conf, flag_cmd]
+      if not any(flags):
+        dic[key] = val
+    #%%%%%%%%%%%%%%%%%%
+
+    # exclude modules that have no bin/bin64 folders in them
+    exclude = set(['bin', 'accounting', 'intel_env', 'foss_env'])
+    for toolchain in self.avail_toolchain:
+      path = '/apps/leuven/thinking/{0}a/software'.format(toolchain)
+      dirs = glob.glob(path + '/*')
+
+      if len(dirs) == 0:
+        logger.error('__set_dic_executables: Found no modules in {0}'.format(path))
+        raise ValueError
+
+      for mod in dirs:
+        module_name = os.path.basename(mod)
+        val         = module_name
+        if module_name in exclude: continue
+        module_vers = glob.glob(mod + '/*')
+
+        for vers in module_vers:
+          vers_name = os.path.basename(vers)
+          bin_path  = '{0}/bin'.format(vers)
+          bin64_path= '{0}/bin64'.format(vers)
+
+          # Case a. The version folder already has bin/bin64 folder
+          # executables in bin
+          if os.path.exists(bin_path): 
+            exec_files = glob.glob(bin_path + '/*')
+            # key: exec filename, key: module name
+            for exec_file in exec_files: 
+              key = os.path.basename(exec_file)
+
+              add_key_val(key, val)
+              print_this(exec_file, key, val)
+
+          # executables in bin64
+          elif os.path.exists(bin64_path):
+            exec_files = glob.glob(bin64_path + '/*')
+            # key: exec filename; key: module name
+            for exec_file in exec_files:
+              key = os.path.basename(exec_file)
+ 
+              add_key_val(key, val)
+              print_this(exec_file, key, val)
+
+          # Case b. the bin/bin64 folder is located few levels deeper in the directory tree!
+          else: 
+            # this finds the bin/bin64 folder, and all other junk; so, needs trimming later on
+            maybe_bin_dirs = glob.glob(vers + '/**/bin*', recursive=True)
+            if not maybe_bin_dirs: continue # has no bin/bin64 at all
+            list_bin_dirs  = []
+            for bin_dir in maybe_bin_dirs:
+              bin_dirname = os.path.basename(bin_dir) 
+              if bin_dirname == 'bin' or bin_dirname == 'bin64': list_bin_dirs.append(bin_dir)
+            if not list_bin_dirs: continue  # no files inside the bin/bin64 folders
+#            print(module_name, vers_name, list_bin_dirs)
+            # Now, collect the executables from the bin/bin64 folders
+            for bin_dir in list_bin_dirs:
+              exec_files = glob.glob(bin_dir + '/*')
+              for exec_file in exec_files:
+                key = os.path.basename(exec_file)
+
+                add_key_val(key, val)
+                print_this(exec_file, key, val)
+
+    return dic
+
+  #---------------------
+  def write_dic_executables(self, filename):
+    """
+    Write the executable list as an ASCII file
+    @param filename: full path to the ASCII file
+    @type filename: str
+    """
+    if not self.executables: 
+      logger.warning('write_dic_executables: self.executables is empty. Call get_dic_executables()')
+      return None
+
+    lines = []
+    for key, val in self.executables.items(): lines.append('{0} {1}\n'.format(key, val))
+    with open(filename, 'w') as w: w.writelines(lines)
+    logger.info('write_dic_executables: stored {0}'.format(filename))
 
   #---------------------
   def get_dic_version_counter(self):
@@ -235,7 +371,6 @@ class stats:
     with open(filename, 'w') as w: w.writelines(lines)
     logger.info('write_sort_module_counts_as_ascii: Successfully wrote to: {0}'.format(filename))
 
-  #---------------------
   #---------------------
   #---------------------
 
