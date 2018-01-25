@@ -128,6 +128,7 @@ class JB:
      Retrieve the value of the ppn (processes/cores per node) from 
      """
      nodes = self.nodes
+     if nodes is None: return
      if ':' not in nodes: return
      parts = nodes.split(':')
      n_parts = len(parts)

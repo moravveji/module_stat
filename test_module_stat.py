@@ -18,12 +18,35 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(filename='module-stat.log',level=logging.INFO)
 ###########################################################
 
+def test_module_stat_used():
+  """ test self.used """
+  stat     = stats.stats(exec_file="executables.txt")
+  path_jobscript  = '/apps/leuven/icts/jobscripts'
+  date_dir        = '2017-09-15'
+  sample_script   = '20602304.moab.tier2.leuven.vsc.SC' # <-- OK
+  path_script     = '/'.join([path_jobscript, date_dir, sample_script])
+  scr             = scripts.script(path_script)
+  print(scr.loaded)
+  print(scr.called)
+  print(scr.used)
+  for key in scr.used.keys():
+    try:
+      stat.increment_module_count(key)
+    except KeyError:
+      continue
+  for key, val in stat.module_counter.items():
+    if val > 0:
+      print(key, val)
+  
 ###########################################################
 def test_module_stat_executables():
 
-  stat     = stats.stats()
-  stat.write_dic_executables('executables.txt')
-  dic_exec = stat.executables
+  stat     = stats.stats(exec_file="executables.txt")
+  #stat.write_dic_executables('executables.txt')
+  stat.read_and_set_dic_executables('executables.txt')
+  dic_exec = stat.get_dic_executables()
+  print('mcc: ', dic_exec['mcc'])
+#  print('g09: ', dic_exec['g09'])
   
 ###########################################################
 def test_module_scripts():
@@ -118,8 +141,12 @@ if __name__ == '__main__':
     stat = test_module_scripts()
     if stat != 0: sys.exit(stat) 
 
-  if True:
+  if False:
     stat = test_module_stat_executables()
+    if stat != 0: sys.exit(stat)
+
+  if True:
+    stat = test_module_stat_used()
     if stat != 0: sys.exit(stat)
   
 ###########################################################

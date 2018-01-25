@@ -5,6 +5,26 @@ Purpose: This module provides a container for the statistics of the modules used
         A potentially interesting attribute of the "stats" class is the version_counter dictionary
         whose keys contain the full trace of a module (toolchain, software name and version), and 
         the values count the number of times that module has been loaded in all scripts.
+
+Examples:
+        To instantiate the class
+        >>>with stats.stats() as stat:
+        >>>  ...
+
+        To write the dictionary of the executables to an ASCII file. This is really advisible 
+        once every while, walking through the whole modules and collecting the executables every
+        time takes several minutes. 
+        >>>stat     = stats.stats()
+        >>>stat.write_dic_executables('executables.txt')
+
+        To read the dictionary of the executables from an already-existing ASCII file
+        >>>with stats.stats() as stat: dic_exec = stat.read_dic_executables('executables.txt')
+
+        To read the dictionary of the executables, and set self.executables in one go, do
+        >>>with stats.stats() as stat:
+        >>>  stat.read_and_set_dic_executables('executables.txt')
+        >>>  dic_exec = stat.get_dic_executables()
+
 """
 import sys, os, glob
 import logging
@@ -19,10 +39,17 @@ class stats:
   This class collects the statistics of the resource requirements of a job and the 
   modules/toolchain used. This is useful for visualization 
   """
-  def __init__(self):
+  def __init__(self, exec_file=None):
     """
     Constructor
     Available attributes:
+    
+    @param exec_file: the name of an ASCII file which contains the list of executables and their
+                     corresponding module file, only if the file is already generated and exists.
+                     Else, you may live this optional argument as None, and make/provide it later.
+                     default: None
+    @type exec_file: str 
+
     + avail_toolchain: lists the toolchain year of the modules on the cluster (integer)
     + avail_modules: dictionary with toolchain year as keys (integer), and a string list of 
                      module name/version as value. E.g. 
@@ -39,17 +66,21 @@ class stats:
                      and assigns that to the module name (as the value). This is done by searching
                      into the "bin" folder of the modules folder.
     """
+    # Currently available modules/software
     self.avail_toolchain = [2014, 2015, 2016]
     self.avail_modules   = {toolchain: list() for toolchain in self.avail_toolchain}
+    self.executables     = dict()
+    self.executables_file= exec_file
+
+    # Counters
     self.module_counter  = dict()
     self.version_counter = dict()
-    self.executables     = dict()
 
     # Allocate the attributes above
     self.__set_avail_modules()
     self.__set_dic_module_counter()
     self.__set_dic_version_counter()
-#    self.__set_dic_executables()
+    self.__set_dic_executables()
 
   #---------------------
   def __enter__(self):
@@ -58,6 +89,19 @@ class stats:
   #---------------------
   def __exit__(self, type, value, traceback):
     pass
+
+  #---------------------
+  def setter(self, attr, val):
+    """
+    Setter method of the class
+    @param attr: an available public attribute of the class
+    @type attr: str
+    @param val: The value for the attribute to be set
+    """
+    if hasattr(self, attr): 
+      setattr(self, attr, val)
+    else:
+      logger.warning('setter: stats class does not have attribute: {0}'.format(attr))
 
   #---------------------
   def get_avail_modules(self, toolchain):
@@ -108,7 +152,18 @@ class stats:
     method get_dic_executables()
     """
     if self.executables: return  # executables are already available; why bother?
-    self.executables = self.get_dic_executables().copy()
+    if self.executables_file is None: 
+      message = '__set_dic_executables: self.executables_file is None.\n \
+                       You may follow one of these approaches: \n \
+                       + MyStat= stats.stats(exec_file="executables.txt") \n \
+                         self.read_and_set_dic_executables("executables.txt") \n \
+                       OR you may generate the executables_file, if it does not exist already \n \
+                       + self.write_dic_executables("executables.txt") \n'
+      logger.warning(message)
+      print(message)
+      raise RuntimeWarning
+    else: 
+      self.read_and_set_dic_executables(self.executables_file)
 
   #---------------------
   def get_dic_executables(self):
@@ -132,6 +187,13 @@ class stats:
           file and recycle that file later on. This ASCII file must be updated once in a while.
           For that, see the public method: write_dic_executables()
     """
+    # if self.executables is non-empty, just return its copy
+    if self.executables:
+      return self.executables.copy()
+    else: 
+      pass
+
+    # Thus, below here, self.executables is empty
     dic = dict()
 
     #%%%%%%%%%%%%%%%%%%
@@ -182,7 +244,7 @@ class stats:
               key = os.path.basename(exec_file)
 
               add_key_val(key, val)
-              print_this(exec_file, key, val)
+#              print_this(exec_file, key, val)
 
           # executables in bin64
           elif os.path.exists(bin64_path):
@@ -192,7 +254,7 @@ class stats:
               key = os.path.basename(exec_file)
  
               add_key_val(key, val)
-              print_this(exec_file, key, val)
+#              print_this(exec_file, key, val)
 
           # Case b. the bin/bin64 folder is located few levels deeper in the directory tree!
           else: 
@@ -204,7 +266,6 @@ class stats:
               bin_dirname = os.path.basename(bin_dir) 
               if bin_dirname == 'bin' or bin_dirname == 'bin64': list_bin_dirs.append(bin_dir)
             if not list_bin_dirs: continue  # no files inside the bin/bin64 folders
-#            print(module_name, vers_name, list_bin_dirs)
             # Now, collect the executables from the bin/bin64 folders
             for bin_dir in list_bin_dirs:
               exec_files = glob.glob(bin_dir + '/*')
@@ -212,7 +273,7 @@ class stats:
                 key = os.path.basename(exec_file)
 
                 add_key_val(key, val)
-                print_this(exec_file, key, val)
+#                print_this(exec_file, key, val)
 
     return dic
 
@@ -220,17 +281,59 @@ class stats:
   def write_dic_executables(self, filename):
     """
     Write the executable list as an ASCII file
-    @param filename: full path to the ASCII file
+    @param filename: full path to the ASCII file to write to
     @type filename: str
     """
     if not self.executables: 
-      logger.warning('write_dic_executables: self.executables is empty. Call get_dic_executables()')
-      return None
+      logger.warning('write_dic_executables: self.executables is empty. Calling get_dic_executables()')
+      self.__set_dic_executables()
 
     lines = []
     for key, val in self.executables.items(): lines.append('{0} {1}\n'.format(key, val))
     with open(filename, 'w') as w: w.writelines(lines)
     logger.info('write_dic_executables: stored {0}'.format(filename))
+
+  #---------------------
+  def read_dic_executables(self, filename):
+    """
+    Read the key/value item pairs of the executable list from the ASCII file, and return 
+    the dictionary with the keys as the executable name (form the bin or bin64 directory) and the
+    value is the module name
+    Note: whether or not the self.executables dictionary is empty, we do NOT set the value of that
+          attribute to the dictionary representation of the content of this ASCII file.
+
+    @param filename: full path to the ASCII file to read from; the filenama is space-delimited
+    @type filename: str
+    @return: a dictionary, similar to what self.executables attribute must look like
+    @rtype: dict
+    """
+    if not os.path.exists(filename):
+      logger.warning('read_dic_executables: {0} does not exist'.format(filename))
+      return None
+    with open(filename, 'r') as r: lines = r.readlines()
+    dic = dict()
+    for line in lines:
+      key, val = line.rstrip('\r\n').split()
+      dic[key] = val
+    
+    return dic
+
+  #---------------------
+  def read_and_set_dic_executables(self, filename):
+    """
+    Read the executable list from the ASCII file and call the read_dic_executables() method. Then,
+    set the self.executables attribute with the contents of this dictionary. This method is 
+    complementory to the read_dic_executables() and __set_dic_executables()
+    
+    @param filename: full path to the ASCII file to read from; the filenama is space-delimited
+    @type filename: str
+    """
+    if self.executables: 
+      logger.warning('read_and_set_dic_executables: self.executables is non-empty. skipping ...')
+      return None
+
+    dic = self.read_dic_executables(filename)
+    self.executables = dic.copy()
 
   #---------------------
   def get_dic_version_counter(self):
@@ -306,12 +409,21 @@ class stats:
     self.version_counter[key] += 1
 
   #---------------------
-  def increment_module_count(self, module):
+  def increment_module_count(self, which):
     """
     x
     """
-    if not module in self.module_counter:
-      logger.error('increment_module_count: invalid key: {0}'.format(module))
+    is_module = which in self.module_counter
+    is_exec   = which in self.executables
+#    is_found  = any([is_module, is_exec])
+
+    if is_module: 
+      module = which
+    elif is_exec:
+      # swapping the module name by providing the executable name, and get the module name
+      module  = self.executables[which] 
+    else: 
+      logger.error('increment_module_count: invalid key: {0}'.format(which))
       raise KeyError
 
     self.module_counter[module] += 1

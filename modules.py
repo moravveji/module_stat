@@ -10,6 +10,13 @@ import logging
 ##########################################################################
 logger = logging.getLogger(__name__)
 ##########################################################################
+# Bash-specific commands/wildcards that we skip if in a script file
+bash_exclude = ['if', 'then', 'else', 'fi', 'do', 'done', 'case', 'in', 'esac', 
+                'export', 'cd', 'cp', 'mv', 'mkdir', 'rm', 'echo', 'hostname', 
+                'time']
+skip_chars   = set(['-', '$', ';', '*', '"'])
+
+##########################################################################
  
 class module:
   """
@@ -37,19 +44,26 @@ class module:
     # default: empty dict. when filled up the key will be module name; 
     # if the version is specified, that will be the value, else value is None
     self.loaded    = dict()  
+    self.called    = dict()
+    self.used      = dict()
    
     # Start manipulating the .SC script file
     self.__read()
     self.__find_toolchain()
-    self.__find_module_load()
+    self.__find_module_use()
 
   #---------------------
   def __read(self):
     """
     Reads the file once, and stores the file content as a list of strings
-    (one item per line) for further manipulation
+    (one item per line) for further manipulation. Note that all lines starting with 
+    the comment character "#" are thrown away
     """
-    with open(self.file_sc, 'r') as r: self.lines = r.readlines()
+    with open(self.file_sc, 'r') as r: orig = r.readlines()
+    self.lines = list()
+    for raw in orig:
+      if raw.strip().startswith('#'): continue
+      self.lines.append(raw.strip())
 
   #---------------------
   def __find_toolchain(self):
@@ -72,17 +86,20 @@ class module:
         pass
 
   #---------------------
-  def __find_module_load(self):
+  def __find_module_use(self):
     """
     Reads and scans the in the document.
     """
     if self.lines is None: 
-      logger.warning('find_module_load: The script file is not read yet')
+      logger.warning('find_module_use: The script file is not read yet')
       return
 
     for line in self.lines:
       if line.strip().startswith('module load'):
         self.__add_module(line)
+      else:
+        self.__check_calls(line)
+    self.used = dict(self.loaded, **self.called)
     
   #---------------------
   def __add_module(self, mod):
@@ -128,6 +145,52 @@ class module:
 
     self.toolchain = year
     
+  #---------------------
+  def __check_calls(self, line):
+    """
+    Check if the line might contain a call to an executable. If it might contain a call
+    to a module executable, then, the list of words in that line are trimmed off not to contain
+    command-line arguments or arguments/variables starting with "$" character. Even after doing 
+    that, the list of words passed to __add_calls() method may or maynot contain correct executable
+    name(s). E.g. from a line like 
+        monitor -l runtime.log -- matlab -nodisplay -nojvm -r "MyExec 1 2 3" 
+    we exclude: -l, --, -nodisplay, -nojvm, -r and "MyExec 1 2 3"
+    and only capture: monitor, runtime.log and matlab for later processing.
+    Note: if the length of the line is only 1, the method ignores it, and 
+
+    @param line: One line of the script file
+    @type line: str
+    @return: None
+    @rtype: None
+    """
+    words   = line.split() # split by space
+    if len(words) == 1: return None
+
+#    first   = words[0]
+#    if first in bash_exclude: 
+#      pass
+#    else:
+    maybe = []
+    for word in words:
+      if word[0] in skip_chars or '=' in word: continue
+      maybe.append(word)
+    self.__add_calls(maybe)
+
+  #---------------------
+  def __add_calls(self, candidates):
+    """
+    This method extends the self.called attribute by adding extra items to it. The keys are the
+    the items in the list, and the values are set to None
+
+    @param candidates: the potential/candidate executable names found in the script files. The
+           list is already trimmed from some obvious words after a former call by __check_calls().
+    @type candidates: list of strings
+    @return: None
+    @rtype: None
+    """
+    for key in candidates: self.called[key] = None
+
+  #---------------------
   #---------------------
 
 ##########################################################################
