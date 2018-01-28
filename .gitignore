@@ -3,6 +3,7 @@
 *log
 *.txt
 *.sql
+*.db
 __pycache__
 bashrc.py*
 database.py

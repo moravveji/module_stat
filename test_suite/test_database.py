@@ -21,6 +21,11 @@ def t03_execute_sql_script(name, scriptfile):
   try:
     db = mdb.database(name)
     db.execute_sql_script(scriptfile)
+    Family = [('John', 'parent'), ('Sara', 'parent'), ('Peter', 'child'), ('Ana', 'child')]
+    db.conn.executemany('insert into family(name, role) values (?, ?)', Family)
+    for member in db.conn.execute('select name, role from family'):
+      print(member)
+    db.drop()
     logger.info('T03: success')
     return 0
   except Exception as err:
@@ -61,14 +66,14 @@ if __name__ == '__main__':
   which_db = 'delete_me.db'
   which_script = 'example.sql'
 
-  if True:
-    sys.exit( t03_execute_sql_script(which_db, which_script) )
-
   if False:
     sys.exit( t01_create_simple_db(which_db) )
 
-  if True:
+  if False:
     sys.exit( t02_create_delete_db(which_db) )
+
+  if True:
+    sys.exit( t03_execute_sql_script(which_db, which_script) )
 
 ###########################################################
 
