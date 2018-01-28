@@ -65,7 +65,9 @@ The following modules are defined in this package:
   2. some users swap between different toolchain years more than once, and juggle with the `module load` and `module purge` repeatedly. This also complicates the statistics of specific version of a software too difficult.
 + `scripts` provides a child class `script` from the two `JB` and `module` classes, and takes care of the manipulation of the .SC and .JB files under the hood.
 + `stats` provides the `stat` class to count the number of times any module is loaded
++ `database` (**private**) stores the useful information of the installed software to a database 
 + `test_module_stat` is a basic test suite for different functionalities and modules
++ `test_database` checks different units and methods of the `database` module/class
 + `run_module_stat` provides few runtime examples for using this package
 
 ## Notes
