@@ -18,8 +18,8 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(filename='module-stat.log',level=logging.INFO)
 ###########################################################
 
-def test_module_stat_used():
-  """ test self.used """
+def test_module_stat_used_one():
+  """ test self.used only for one script """
   stat     = stats.stats(exec_file="executables.txt")
   path_jobscript  = '/apps/leuven/icts/jobscripts'
   date_dir        = '2017-09-15'
@@ -146,7 +146,7 @@ if __name__ == '__main__':
     if stat != 0: sys.exit(stat)
 
   if True:
-    stat = test_module_stat_used()
+    stat = test_module_stat_used_one()
     if stat != 0: sys.exit(stat)
   
 ###########################################################

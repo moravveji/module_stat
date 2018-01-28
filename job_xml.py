@@ -130,18 +130,27 @@ class JB:
      nodes = self.nodes
      if nodes is None: return
      if ':' not in nodes: return
+
+     #.............................
+     def get_ppn_and_machine(parts):
+       """ Specification of ppn, nodes and machine has no ordering, do handle it decently """
+       ppn, machine = 1, None # defaults
+       for p in parts:
+         if p == 'haswell': machine = 'haswell'
+         if p == 'ivybrdige': machine = 'ivybridge'
+         if 'ppn' in p: ppn = int(p[4:])
+
+       return ppn, machine
+     #.............................
+  
      parts = nodes.split(':')
      n_parts = len(parts)
      if n_parts == 1:
        logger.error('__set_ppn: nodes={0}'.format(nodes))
        ppn = 1
        machine = None
-     elif n_parts == 2:
-       ppn = int(parts[1][4:])
-       machine = None
-     elif n_parts == 3:
-       ppn = int(parts[1][4:])
-       machine = parts[-1]
+     elif n_parts == 2 or n_parts == 3:
+       ppn, machine = get_ppn_and_machine(parts)
      else:
        logger.error('__set_ppn: Expecting nodes to have only max 3 pieces; but has len={0}'.format(n_parts))
        raise IndexError 

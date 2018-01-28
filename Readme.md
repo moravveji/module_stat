@@ -68,6 +68,9 @@ The following modules are defined in this package:
 + `test_module_stat` is a basic test suite for different functionalities and modules
 + `run_module_stat` provides few runtime examples for using this package
 
+## Notes
++ As the development evolved, I noticed that a better data structure could have been used for some attributes of some of the classes. E.g. `stats.loaded`, `stats.called` and `stats.used` are currently dictionaries where in most cases the values of the keys are `None`; for these attributes, the use of Python `set` could have done the job similarly, with an added benefit of using somehow less RAM. The only point here is that the abovementioned dictionaries do not grow too large per each script, so, it is pretty safe to live with the current development.
+
 ## Dependencies
 + Python 3.6
 + numpy

@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 bash_exclude = ['if', 'then', 'else', 'fi', 'do', 'done', 'case', 'in', 'esac', 
                 'export', 'cd', 'cp', 'mv', 'mkdir', 'rm', 'echo', 'hostname', 
                 'time']
-skip_chars   = set(['-', '$', ';', '*', '"'])
+skip_chars   = set(['-', '$', ';', '*', '"', '>', '<', '!', '+', '&'])
 
 ##########################################################################
  

@@ -22,28 +22,32 @@ logging.basicConfig(filename='run-module-stat.log',level=logging.INFO)
 def collect_module_use_stats():
 
   # Choose target repository of scripts
-  repos_scripts = '/apps/leuven/icts/jobscripts/2017-10-21'
-#  repos_scripts = '/apps/leuven/icts/jobscripts'
+#  repos_scripts = '/apps/leuven/icts/jobscripts/2017-10-21' # 1 day
+#  repos_scripts = '/apps/leuven/icts/jobscripts/2017-10-2*' # 10 days
+  repos_scripts = '/apps/leuven/icts/jobscripts' # all jobs
   script_files  = glob.glob(repos_scripts+'/**/*.SC', recursive=True)
   shuffle(script_files)
 
   # Collect statistics for this folder
-  stat = stats.stats(exec_file='executables.txt')
+  stat = stats.stats('executables.txt')
 
   # Count module loads
-  n_all, n_OK, n_bad = 0, 0, 0
+  n_all, n_OK, n_no_JB, n_no_use, n_None = 0, 0, 0, 0, 0
   for script_file in script_files:
     n_all += 1
     try:
       scr = scripts.script(script_file)
     except Exception as err:
-      print('err: ', repr(err), script_file)
+      logger.error(repr(err) + ': ' + script_file)
+      n_no_JB += 1
       continue
     if isinstance(scr, type(None)): 
       print(None, script_file)
+      n_None += 1
       raise TypeError
     if not scr.used: 
-      print('no use: ', script_file)
+      logger.warning('no use: ' + script_file)
+      n_no_use += 1
       continue
     for key in scr.used.keys():
       try:
@@ -52,9 +56,11 @@ def collect_module_use_stats():
         continue
 
     n_OK += 1     
-  n_bad = n_all - n_OK
   p_OK  = n_OK / n_all * 1e2
-  print('All: {0}; OK: {1}; Bad: {2} => percent OK: {3:.2f}%'.format(n_all, n_OK, n_bad, p_OK))
+  p_no_JB = n_no_JB / n_all * 1e2
+  print('All: {0}; OK: {1}; no_use: {2}, no_JB: {3}, None: {4}'.format(
+         n_all, n_OK, n_no_use, n_no_JB, n_None))
+  print(' => percent OK: {0:.2f}%, no_JB: {1:.2f}%'.format(p_OK, p_no_JB))
 
   showtop = 50
   top_mod, top_count = stat.sort_module_counts(showtop)
@@ -92,17 +98,13 @@ def count_good_bad_scripts():
 def count_scripts_without_module_load():
   """
   What percentage of the scripts do not load any modules in the?
-
-  Result: 24 Jan 2018:
-  "36439" scripts have module loads and "53241" do not load modules
-  "40.63%" have module loads, and "59.37%" do not load modules
-  "42.75%" of jobs succeeded, out of "209784" jobs
   """
-  repos_scripts = '/apps/leuven/icts/jobscripts'
+  repos_scripts = '/apps/leuven/icts/jobscripts/2017-10-10'
   script_files  = glob.glob(repos_scripts + '/**/*.SC', recursive=True)
+  n_scr         = len(script_files)
 
+  n_OK, n_fail = 0, 0 # for jobs that failed
   n_has, n_does_not = 0, 0 # for modules that have even a single "module load ..." 
-  n_OK,  n_fail     = 0, 0 # for jobs that failed
   for i, script_file in enumerate(script_files):
     try:
       with scripts.script(script_file) as scr:
@@ -111,16 +113,22 @@ def count_scripts_without_module_load():
         else:
           n_does_not += 1
         n_OK += 1
-    except:
-      n_fail += 1
+    except:  # FileNotFoundError or etc.
+      pass
+#      n_fail += 1
 
   n_mod = n_has + n_does_not
   p_has = n_has / n_mod * 1e2
   p_does_not = n_does_not / n_mod * 1e2
 
-  n_tot = n_OK + n_fail
+  n_tot = n_scr
+  n_fail= n_tot - n_OK
   p_OK  = n_OK / n_tot * 1e2
   p_fail= n_fail / n_tot * 1e2
+
+  print('\nn_scr={0}'.format(n_scr))
+  print('n_OK:{0}, n_fail:{1}'.format(n_OK, n_fail))
+  print('n_has:{0}, n_does_not:{1}'.format(n_has, n_does_not))
 
   print('\n"{0}" scripts have module loads and "{1}" do not load modules'.format(n_has, n_does_not))
   print('"{0:.2f}%" have module loads, and "{1:.2f}%" do not load modules'.format(p_has, p_does_not))
@@ -166,11 +174,11 @@ if __name__ == '__main__':
   if False:
     stat = count_good_bad_scripts()
 
-  if True:
+  if False:
     stat = collect_module_use_stats()
     if stat != 0: sys.exit(stat)
 
-  if False:
+  if True:
     stat = count_scripts_without_module_load()
     if stat != 0: sys.exit(stat)
 

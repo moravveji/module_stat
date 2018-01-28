@@ -423,8 +423,9 @@ class stats:
       # swapping the module name by providing the executable name, and get the module name
       module  = self.executables[which] 
     else: 
-      logger.error('increment_module_count: invalid key: {0}'.format(which))
-      raise KeyError
+      logger.warning('increment_module_count: invalid key: {0}'.format(which))
+      return
+#      raise KeyError
 
     self.module_counter[module] += 1
 
