@@ -18,6 +18,18 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(filename='module-stat.log',level=logging.INFO)
 ###########################################################
 
+###########################################################
+###########################################################
+def test_get_list_executables():
+  """
+  test get_list_executables() method
+  """
+  with stats.stats() as stat:
+    list_exec = stat.get_list_executables()
+    n_exec    = len(list_exec)
+    print('We found {0} distinct executables'.format(n_exec))
+
+###########################################################
 def test_module_stat_used_one():
   """ test self.used only for one script """
   stat     = stats.stats(exec_file="executables.txt")
@@ -145,8 +157,12 @@ if __name__ == '__main__':
     stat = test_module_stat_executables()
     if stat != 0: sys.exit(stat)
 
-  if True:
+  if False:
     stat = test_module_stat_used_one()
+    if stat != 0: sys.exit(stat)
+
+  if True:
+    stat = test_get_list_executables()
     if stat != 0: sys.exit(stat)
   
 ###########################################################
