@@ -71,6 +71,7 @@ class stats:
     self.avail_modules   = {toolchain: list() for toolchain in self.avail_toolchain}
     self.executables     = dict()
     self.executables_file= exec_file
+    self.list_executables= list()
 
     # Counters
     self.module_counter  = dict()
@@ -80,7 +81,8 @@ class stats:
     self.__set_avail_modules()
     self.__set_dic_module_counter()
     self.__set_dic_version_counter()
-    self.__set_dic_executables()
+#    self.__set_dic_executables()
+    self.__set_list_executables()
 
   #---------------------
   def __enter__(self):
@@ -145,6 +147,179 @@ class stats:
     for toolchain in self.avail_toolchain:
       self.avail_modules[toolchain] = self.get_avail_modules(toolchain)
 
+  # Executables List
+  #---------------------
+  def __set_list_executables(self):
+    """
+    Set the attribute self.list_executables by calling the public method get_list_executables().
+    """
+    if self.list_executables: return # already set, why bother?
+    self.list_executables = self.get_list_executables()
+
+  #---------------------
+  def get_list_executables(self):
+    """
+    This method is somehow similar to get_dic_executables(), but returns a list of tuples, instead
+    of a dictionary. So, the identical executables (similar names) will not be overwritten anymore.
+
+    Walks through all modules in all toolchains, and searches for the "bin" or "bin64" folder under 
+    all possible versions of that software. If the software/module has a "bin/bin64" folder, 
+    then, the name of the executable is taken as the key, and name of the module is taken
+    as the value of the dictionary. 
+    E.g. the "R" package has a "bin" folder (for any of the toolchains and/or versions), and
+    inside that, there are two executable files, called "R" and "Rscript". As a result, the
+    self.executable dictionary would have two extra items (key/value) pairs as:
+    self.executable = {..., 'R': 'R', 'Rscript': 'R', ...}. 
+
+    Note: Two cases happen:
+      + case a. The software has a bin/bin64 folder (or both), just right under the version folder
+      + case b. The software might have a bin/bin64 (or both), but they are digged under folder 
+                hierarchy, or there are multiple bin/bin64 folders available for a single version
+    We treat both cases here.
+
+    Note: calling this public method takes few minutes, so, one may write the outcome as an ASCII
+          file and recycle that file later on. This ASCII file must be updated once in a while.
+          For that, see the public method: write_dic_executables()
+
+    @return: list of tuples containing the following elements per each tuple:
+          - toolchain: int; gets the toolchain from self.avail_toolchain 
+          - module: str; the module name
+          - version: str; the version name
+          - executable: str: the executable name
+    @rtype: list of tuples
+    """
+    # if self.executables is non-empty, just return its copy
+    if self.list_executables:
+      return self.list_executables.copy()
+    else: 
+      pass
+
+    # Thus, below here, self.list_executables is empty
+    litup = list() # list of tuples, hence litup
+
+    #%%%%%%%%%%%%%%%%%%
+    def print_this(ex, k, v):
+      """ just define a local printing convenience function """
+      print('{0}: {1}, {2}'.format(ex, k, v))
+    #%%%%%%%%%%%%%%%%%%
+
+    def append_to_list(tc, mod, vers, ex):
+      """ append the tuple (toolchain, module_name, version_name, exec_name) to the list "litup" """
+      flag_tc  = isinstance(tc, int)
+      if not flag_tc:
+        logger.error('get_list_executables: append_to_list: toolchain must be integer type')
+        raise TypeError
+
+      flag_dat = '.dat' in ex
+      flag_txt = '.txt' in ex
+      flag_so  = '.so'  in ex
+      flag_conf= '.conf' in ex or '.config' in ex
+      flag_cmd = '.cmd' in ex
+      flags    = [flag_dat, flag_txt, flag_so, flag_conf, flag_cmd]
+      if not any(flags): litup.append( (tc, mod, vers, ex) )
+
+    #%%%%%%%%%%%%%%%%%%
+
+    # exclude modules that have no bin/bin64 folders in them
+    exclude = set(['bin', 'accounting', 'intel_env', 'foss_env'])
+    for toolchain in self.avail_toolchain:
+      path = '/apps/leuven/thinking/{0}a/software'.format(toolchain)
+      dirs = glob.glob(path + '/*')
+
+      if len(dirs) == 0:
+        logger.error('__set_dic_executables: Found no modules in {0}'.format(path))
+        raise ValueError
+
+      for mod in dirs:
+        module_name = os.path.basename(mod)
+        val         = module_name
+        if module_name in exclude: continue
+        module_vers = glob.glob(mod + '/*')
+
+        for vers in module_vers:
+          vers_name = os.path.basename(vers)
+          bin_path  = '{0}/bin'.format(vers)
+          bin64_path= '{0}/bin64'.format(vers)
+
+          # Case a. The version folder already has bin/bin64 folder
+          # executables in bin
+          if os.path.exists(bin_path): 
+            exec_files = glob.glob(bin_path + '/*')
+            # key: exec filename, key: module name
+            for exec_file in exec_files: 
+              exec_name = os.path.basename(exec_file)
+
+              append_to_list(toolchain, module_name, vers_name, exec_name)
+
+          # executables in bin64
+          elif os.path.exists(bin64_path):
+            exec_files = glob.glob(bin64_path + '/*')
+            # key: exec filename; key: module name
+            for exec_file in exec_files:
+              exec_name = os.path.basename(exec_file)
+ 
+              append_to_list(toolchain, module_name, vers_name, exec_name)
+
+          # Case b. the bin/bin64 folder is located few levels deeper in the directory tree!
+          else: 
+            # this finds the bin/bin64 folder, and all other junk; so, needs trimming later on
+            maybe_bin_dirs = glob.glob(vers + '/**/bin*', recursive=True)
+            if not maybe_bin_dirs: continue # has no bin/bin64 at all
+            list_bin_dirs  = []
+            for bin_dir in maybe_bin_dirs:
+              bin_dirname = os.path.basename(bin_dir) 
+              if bin_dirname == 'bin' or bin_dirname == 'bin64': list_bin_dirs.append(bin_dir)
+            if not list_bin_dirs: continue  # no files inside the bin/bin64 folders
+            # Now, collect the executables from the bin/bin64 folders
+            for bin_dir in list_bin_dirs:
+              exec_files = glob.glob(bin_dir + '/*')
+              for exec_file in exec_files:
+                exec_name = os.path.basename(exec_file)
+
+                append_to_list(toolchain, module_name, vers_name, exec_name)
+
+    return litup
+
+  #---------------------
+  def write_list_executables(self, filename):
+    """
+    Write the self.list_executables as a space-delimitted ASCII file
+    @param filename: the full path to the output filename
+    @type filename: str
+    """
+    if not self.list_executables:
+      logger.warning('write_list_executables: self.list_executables is empty. skipping ...')
+      return
+
+    lines = []
+    for tup in self.list_executables:
+      tc   = tup[0]
+      mod  = tup[1]
+      ver  = tup[2]
+      ex   = tup[3]
+      line = '{0} {1} {2} {3}\n'.format(tc, mod, ver, ex)
+      lines.append(line)
+    with open(filename, 'w') as w: w.writelines(lines)
+    logger.info('write_list_executables: {0} saved'.format(filename))
+
+  #---------------------
+  def read_list_executables(self, filename):
+    """
+
+    """ 
+    pass
+  #---------------------
+  def read_and_set_list_executables():
+    """
+
+    """
+    pass
+  
+  #---------------------
+
+
+  #---------------------
+  # Executable Dictionary
   #---------------------
   def __set_dic_executables(self):
     """
@@ -186,6 +361,14 @@ class stats:
     Note: calling this public method takes few minutes, so, one may write the outcome as an ASCII
           file and recycle that file later on. This ASCII file must be updated once in a while.
           For that, see the public method: write_dic_executables()
+
+    Note: I discovered that there are some software with different module enames, but identical 
+          executable names. Therefore, storing the unique keys results in overwriting the values.
+          As a result of this, only the last module which has identical executable name is returned,
+          and all former hits are lost. To avoid this, call get_list_executables() instead.
+
+    @return: dictionary with keys the executable names, and values their corresponding module name
+    @rtype: dict
     """
     # if self.executables is non-empty, just return its copy
     if self.executables:

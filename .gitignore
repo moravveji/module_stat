@@ -7,3 +7,6 @@
 __pycache__
 bashrc.py*
 database.py
+test_suite
+run
+ranking
