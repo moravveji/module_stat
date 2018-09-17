@@ -39,16 +39,24 @@ class stats:
   This class collects the statistics of the resource requirements of a job and the 
   modules/toolchain used. This is useful for visualization 
   """
-  def __init__(self, exec_file=None):
+  def __init__(self, cluster='thinking', exec_file=None, auto=True):
     """
     Constructor
     Available attributes:
     
+    @param cluster: the name of the target cluster which we aim to collect stats.
+                    The valid names are (case-insensitive): ThinKing, Cerebro, Genius, Breniac
+                    default: ThinKing
+    @type cluster: str
     @param exec_file: the name of an ASCII file which contains the list of executables and their
                      corresponding module file, only if the file is already generated and exists.
                      Else, you may live this optional argument as None, and make/provide it later.
                      default: None
     @type exec_file: str 
+    @param auto: Automatically apply many methods to fill up the attributes entirely. 
+                     Note that this can be very time-consuming. 
+                     default: True
+    @type auto: bool
 
     + avail_toolchain: lists the toolchain year of the modules on the cluster (integer)
     + avail_modules: dictionary with toolchain year as keys (integer), and a string list of 
@@ -66,23 +74,31 @@ class stats:
                      and assigns that to the module name (as the value). This is done by searching
                      into the "bin" folder of the modules folder.
     """
+    # Attributes passed to instantiate the class
+    self.cluster = cluster.lower()
+    self.check_cluster()
+    self.executables_file= exec_file
+    self.auto = auto
+
     # Currently available modules/software
-    self.avail_toolchain = [2014, 2015, 2016]
+    self.avail_toolchain = [2014, 2015, 2016, 2018]
     self.avail_modules   = {toolchain: list() for toolchain in self.avail_toolchain}
     self.executables     = dict()
-    self.executables_file= exec_file
     self.list_executables= list()
 
     # Counters
     self.module_counter  = dict()
     self.version_counter = dict()
+    
+    self.n_max_modules = 0
 
     # Allocate the attributes above
-    self.__set_avail_modules()
-    self.__set_dic_module_counter()
-    self.__set_dic_version_counter()
+    if self.auto:
+      self.__set_avail_modules()
+      self.__set_dic_module_counter()
+      self.__set_dic_version_counter()
 #    self.__set_dic_executables()
-    self.__set_list_executables()
+      self.__set_list_executables()
 
   #---------------------
   def __enter__(self):
@@ -106,10 +122,18 @@ class stats:
       logger.warning('setter: stats class does not have attribute: {0}'.format(attr))
 
   #---------------------
+  def check_cluster(self):
+    try:
+      assert self.cluster in ['thinking', 'cerebro', 'genius', 'breniac']
+    except AssertionError:
+      logger.error('Invalid cluster specified: {0}'.format(self.cluster))
+      sys.exit(1)
+
+  #---------------------
   def get_avail_modules(self, toolchain):
     """
     Searches for available modules to the users inside the path: 
-    /apps/leuven/thinking/{toolchain}a/modules/all
+    /apps/leuven/{cluster}/{toolchain}a/modules/all
     where the {toolchain} will be replaced with a string representation of the passed toolchain
     In return, a list is returned that contains the full module name and version name(s) of that
     module, for all possible modules. E.g. if within the 2014 toolchain, there are 6 different 
@@ -126,7 +150,7 @@ class stats:
       raise ValueError
 
     avail = []
-    path  = '/apps/leuven/thinking/{0}a/modules/all'.format(toolchain)
+    path  = '/apps/leuven/{0}/{1}a/modules/all'.format(self.cluster, toolchain)
     for dirpath, dirnames, filenames in os.walk(top=path, topdown=True, followlinks=False):
       software = os.path.basename(dirpath)
       if filenames:
@@ -190,7 +214,7 @@ class stats:
     """
     # if self.executables is non-empty, just return its copy
     if self.list_executables:
-      return self.list_executables.copy()
+      return self.list_executables.copy()  # otherwise, a pointer to the list will be returned
     else: 
       pass
 
@@ -220,15 +244,28 @@ class stats:
 
     #%%%%%%%%%%%%%%%%%%
 
+    def parse_exec_files(toolchain, module_name, vers_name, exec_files):
+      """  Create a tuple of exec files to append to the list, only if the file is executable """  
+      for exec_file in exec_files:
+        X_OK = os.access(path=exec_file, mode=os.X_OK, follow_symlinks=True) 
+        if not X_OK: continue
+        exec_name = os.path.basename(exec_file)
+        append_to_list(toolchain, module_name, vers_name, exec_name)
+
+    #%%%%%%%%%%%%%%%%%%
+
     # exclude modules that have no bin/bin64 folders in them
     exclude = set(['bin', 'accounting', 'intel_env', 'foss_env'])
     for toolchain in self.avail_toolchain:
-      path = '/apps/leuven/thinking/{0}a/software'.format(toolchain)
+      path = '/apps/leuven/{0}/{1}a/software'.format(self.cluster, toolchain)
       dirs = glob.glob(path + '/*')
 
       if len(dirs) == 0:
-        logger.error('__set_dic_executables: Found no modules in {0}'.format(path))
+        logger.error('__set_dic_executables: Found no modules inside {0}'.format(path))
         raise ValueError
+
+      # local counter to stop the for-loop if number of found modules exceeds n_max_modules
+      counter = 0
 
       for mod in dirs:
         module_name = os.path.basename(mod)
@@ -246,24 +283,31 @@ class stats:
           if os.path.exists(bin_path): 
             exec_files = glob.glob(bin_path + '/*')
             # key: exec filename, key: module name
-            for exec_file in exec_files: 
-              exec_name = os.path.basename(exec_file)
-
-              append_to_list(toolchain, module_name, vers_name, exec_name)
+            parse_exec_files(toolchain, module_name, vers_name, exec_files)
 
           # executables in bin64
           elif os.path.exists(bin64_path):
             exec_files = glob.glob(bin64_path + '/*')
             # key: exec filename; key: module name
-            for exec_file in exec_files:
-              exec_name = os.path.basename(exec_file)
- 
-              append_to_list(toolchain, module_name, vers_name, exec_name)
+            parse_exec_files(toolchain, module_name, vers_name, exec_files)
 
           # Case b. the bin/bin64 folder is located few levels deeper in the directory tree!
           else: 
+
+
+#            continue
+
+
+
+
             # this finds the bin/bin64 folder, and all other junk; so, needs trimming later on
-            maybe_bin_dirs = glob.glob(vers + '/**/bin*', recursive=True)
+#            maybe_bin_dirs = glob.glob(vers + '/**/bin*', recursive=True)
+            maybe_bin_dirs = glob.glob(vers + '/bin*'+os.sep, recursive=True)
+       
+            print(' maybe bin dir?' )
+
+
+
             if not maybe_bin_dirs: continue # has no bin/bin64 at all
             list_bin_dirs  = []
             for bin_dir in maybe_bin_dirs:
@@ -273,10 +317,19 @@ class stats:
             # Now, collect the executables from the bin/bin64 folders
             for bin_dir in list_bin_dirs:
               exec_files = glob.glob(bin_dir + '/*')
-              for exec_file in exec_files:
-                exec_name = os.path.basename(exec_file)
+              parse_exec_files(toolchain, module_name, vers_name, exec_files)
+  
 
-                append_to_list(toolchain, module_name, vers_name, exec_name)
+
+              print(' |-->> ', toolchain, module_name, vers_name, exec_name)
+
+
+
+
+        # Counting found modules
+        counter += 1
+        print('{0}: finished with module: {1}'.format(counter, module_name))
+        if counter > self.n_max_modules: break
 
     return litup
 
@@ -400,7 +453,7 @@ class stats:
     # exclude modules that have no bin/bin64 folders in them
     exclude = set(['bin', 'accounting', 'intel_env', 'foss_env'])
     for toolchain in self.avail_toolchain:
-      path = '/apps/leuven/thinking/{0}a/software'.format(toolchain)
+      path = '/apps/leuven/{0}/{1}a/software'.format(self.cluster, toolchain)
       dirs = glob.glob(path + '/*')
 
       if len(dirs) == 0:
