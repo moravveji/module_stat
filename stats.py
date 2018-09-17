@@ -28,6 +28,7 @@ Examples:
 """
 import sys, os, glob
 import logging
+import subprocess
 import numpy as np
 
 ##########################################################################
@@ -197,7 +198,7 @@ class stats:
 
     Note: Two cases happen:
       + case a. The software has a bin/bin64 folder (or both), just right under the version folder
-      + case b. The software might have a bin/bin64 (or both), but they are digged under folder 
+      + case b. The software might have a bin/bin64 (or both), but they are buried under folder
                 hierarchy, or there are multiple bin/bin64 folders available for a single version
     We treat both cases here.
 
@@ -239,7 +240,12 @@ class stats:
       flag_so  = '.so'  in ex
       flag_conf= '.conf' in ex or '.config' in ex
       flag_cmd = '.cmd' in ex
-      flags    = [flag_dat, flag_txt, flag_so, flag_conf, flag_cmd]
+      flag_jar = '.jar' in ex
+      flag_tar = '.tar' in ex
+      flag_gz  = '.gz' in ex
+      flag_bat = '.bat' in ex
+      flags    = [flag_dat, flag_txt, flag_so, flag_conf, flag_cmd,
+                  flag_jar, flag_tar, flag_gz, flag_bat]
       if not any(flags): litup.append( (tc, mod, vers, ex) )
 
     #%%%%%%%%%%%%%%%%%%
@@ -251,6 +257,21 @@ class stats:
         if not X_OK: continue
         exec_name = os.path.basename(exec_file)
         append_to_list(toolchain, module_name, vers_name, exec_name)
+
+    #%%%%%%%%%%%%%%%%%%
+
+    def find_bindir_recursively(path):
+      """ Find bin/bin64 folders recursively under the "path" directory """
+      cmnd = 'find {0} -type d \( -name bin -o -name bin64 \)'.format(path)
+      proc = subprocess.Popen(cmnd, shell=True, STDOUT=subprocess.PIPE)
+      output, err = proc.communicate()
+      if not output:
+        logger.warning('find_bindir_recursively: found no bin/bin64 folders')
+
+
+
+
+
 
     #%%%%%%%%%%%%%%%%%%
 
@@ -267,9 +288,12 @@ class stats:
       # local counter to stop the for-loop if number of found modules exceeds n_max_modules
       counter = 0
 
+
+      find_bindir_recursively(path)
+
+
       for mod in dirs:
         module_name = os.path.basename(mod)
-        val         = module_name
         if module_name in exclude: continue
         module_vers = glob.glob(mod + '/*')
 
@@ -304,17 +328,17 @@ class stats:
 #            maybe_bin_dirs = glob.glob(vers + '/**/bin*', recursive=True)
             maybe_bin_dirs = glob.glob(vers + '/bin*'+os.sep, recursive=True)
        
-            print(' maybe bin dir?' )
 
 
 
             if not maybe_bin_dirs: continue # has no bin/bin64 at all
+            print('-> bin dir? {0}'.format(maybe_bin_dirs) )
             list_bin_dirs  = []
             for bin_dir in maybe_bin_dirs:
               bin_dirname = os.path.basename(bin_dir) 
               if bin_dirname == 'bin' or bin_dirname == 'bin64': list_bin_dirs.append(bin_dir)
-            if not list_bin_dirs: continue  # no files inside the bin/bin64 folders
-            # Now, collect the executables from the bin/bin64 folders
+            if not list_bin_dirs: continue  # no bin/bin64 folders found
+            # Now, collect the executables from these buried bin/bin64 folders
             for bin_dir in list_bin_dirs:
               exec_files = glob.glob(bin_dir + '/*')
               parse_exec_files(toolchain, module_name, vers_name, exec_files)

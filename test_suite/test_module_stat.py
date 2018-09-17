@@ -7,9 +7,7 @@ Purpose: This test suite will check different features of the package during the
 
 import sys, os, glob
 import logging
-import time
 import xml.etree.ElementTree as ET
-from numpy.random import shuffle
 
 from module_stat import job_xml, scripts, stats
 
@@ -24,7 +22,7 @@ def test_get_list_executables():
   """
   test get_list_executables() method
   """
-  with stats.stats() as stat:
+  with stats.stats(cluster='ThinKing', auto=False) as stat:
     list_exec = stat.get_list_executables()
     n_exec    = len(list_exec)
     print('We found {0} distinct executables'.format(n_exec))
