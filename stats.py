@@ -267,11 +267,10 @@ class stats:
       output, err = proc.communicate()
       if not output:
         logger.warning('find_bindir_recursively: found no bin/bin64 folders')
-
-
-
-
-
+        return list()
+      else:
+        logger.info('find_bindir_recursively {0} folders in {1}'.format(len(output), path))
+        return output
 
     #%%%%%%%%%%%%%%%%%%
 
@@ -289,7 +288,7 @@ class stats:
       counter = 0
 
 
-      find_bindir_recursively(path)
+      list_bin_dirs = find_bindir_recursively(path)
 
 
       for mod in dirs:
