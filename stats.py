@@ -77,9 +77,12 @@ class stats:
     """
     # Attributes passed to instantiate the class
     self.cluster = cluster.lower()
-    self.check_cluster()
+    self.__check_cluster()
     self.executables_file= exec_file
     self.auto = auto
+
+    self.dir_apps = '/apps/leuven'
+    self.__set_dir_apps()
 
     # Currently available modules/software
     self.avail_toolchain = [2014, 2015, 2016, 2018]
@@ -123,11 +126,26 @@ class stats:
       logger.warning('setter: stats class does not have attribute: {0}'.format(attr))
 
   #---------------------
-  def check_cluster(self):
+  def __check_cluster(self):
     try:
       assert self.cluster in ['thinking', 'cerebro', 'genius', 'breniac']
     except AssertionError:
       logger.error('Invalid cluster specified: {0}'.format(self.cluster))
+      sys.exit(1)
+
+  #---------------------
+  def __set_dir_apps(self):
+    cluster = self.cluster
+    if cluster   == 'thinking':
+      self.dir_apps = '/apps/leuven/thinking'
+    elif cluster == 'cerebro':
+      self.dir_apps = '/apps/leuven/cerebro'
+    elif cluster == 'genius':
+      self.dir_apps = '/apps/leuven/skylake'
+    elif cluster == 'breniac':
+      self.dir_apps = '/apps/leuven/broadwell'
+    else:
+      logger.error('__set_dir_apps: self.cluster is invalid')
       sys.exit(1)
 
   #---------------------
@@ -151,7 +169,7 @@ class stats:
       raise ValueError
 
     avail = []
-    path  = '/apps/leuven/{0}/{1}a/modules/all'.format(self.cluster, toolchain)
+    path  = '{0}/{1}a/modules/all'.format(self.dir_apps, toolchain)
     for dirpath, dirnames, filenames in os.walk(top=path, topdown=True, followlinks=False):
       software = os.path.basename(dirpath)
       if filenames:
@@ -269,7 +287,7 @@ class stats:
         logger.warning('find_bindir_recursively: found no bin/bin64 folders')
         return list()
       else:
-        logger.info('find_bindir_recursively {0} folders in {1}'.format(len(stdout), path))
+        logger.info('find_bindir_recursively: {0} folders in {1}'.format(len(stdout), path))
         return stdout
 
     #%%%%%%%%%%%%%%%%%%
@@ -277,7 +295,7 @@ class stats:
     # exclude modules that have no bin/bin64 folders in them
     exclude = set(['bin', 'accounting', 'intel_env', 'foss_env'])
     for toolchain in self.avail_toolchain:
-      path = '/apps/leuven/{0}/{1}a/software'.format(self.cluster, toolchain)
+      path = '{0}/{1}a/software'.format(self.dir_apps, toolchain)
       dirs = glob.glob(path + '/*')
 
       if len(dirs) == 0:
@@ -481,7 +499,7 @@ class stats:
     # exclude modules that have no bin/bin64 folders in them
     exclude = set(['bin', 'accounting', 'intel_env', 'foss_env'])
     for toolchain in self.avail_toolchain:
-      path = '/apps/leuven/{0}/{1}a/software'.format(self.cluster, toolchain)
+      path = '{0}/{1}a/software'.format(self.dir_apps, toolchain)
       dirs = glob.glob(path + '/*')
 
       if len(dirs) == 0:
