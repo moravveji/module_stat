@@ -263,14 +263,14 @@ class stats:
     def find_bindir_recursively(path):
       """ Find bin/bin64 folders recursively under the "path" directory """
       cmnd = 'find {0} -type d \( -name bin -o -name bin64 \)'.format(path)
-      proc = subprocess.Popen(cmnd, shell=True, STDOUT=subprocess.PIPE)
-      output, err = proc.communicate()
-      if not output:
+      proc = subprocess.Popen(cmnd, shell=True, STDOUT=subprocess.PIPE, stderr=subprocess.PIPE)
+      stdout, stderr = proc.communicate()
+      if not stdout:
         logger.warning('find_bindir_recursively: found no bin/bin64 folders')
         return list()
       else:
-        logger.info('find_bindir_recursively {0} folders in {1}'.format(len(output), path))
-        return output
+        logger.info('find_bindir_recursively {0} folders in {1}'.format(len(stdout), path))
+        return stdout
 
     #%%%%%%%%%%%%%%%%%%
 
@@ -289,6 +289,11 @@ class stats:
 
 
       list_bin_dirs = find_bindir_recursively(path)
+      print(list_bin_dirs[:10])
+      sys.exit(1)
+
+
+
 
 
       for mod in dirs:
