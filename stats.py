@@ -289,7 +289,7 @@ class stats:
         return list()
       else:
         logger.info('find_bindir_recursively: {0} folders in {1}'.format(len(stdout), path))
-        return stdout
+        return stdout.split('\n')
 
     #%%%%%%%%%%%%%%%%%%
 
