@@ -25,6 +25,7 @@ def test_get_list_executables():
   with stats.stats(cluster='ThinKing', auto=False) as stat:
     list_exec = stat.get_list_executables()
     n_exec    = len(list_exec)
+    logger.info('We found {0} distinct executables'.format(n_exec))
     print('We found {0} distinct executables'.format(n_exec))
 
 ###########################################################
