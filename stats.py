@@ -85,7 +85,7 @@ class stats:
     self.__set_dir_apps()
 
     # Currently available modules/software
-    self.avail_toolchain = [2016] #  [2014, 2015, 2016, 2018]
+    self.avail_toolchain = [2014] #  [2014, 2015, 2016, 2018]
     self.avail_modules   = {toolchain: list() for toolchain in self.avail_toolchain}
     self.executables     = dict()
     self.list_executables= list()
@@ -299,9 +299,9 @@ class stats:
         if not dir: continue
         if dir == '.': continue
         parts   = dir.split('/')
-        logger.info('{0}'.format(parts))
-        module  = parts[-3]
-        version = parts[-2]
+        module  = parts[6]
+        version = parts[7]
+        logger.info('{0}/{1}'.format(module, version))
         tups.append((module, version))
 
       return tups
@@ -343,7 +343,7 @@ class stats:
         logger.info(f"{counter}: parsed module: {module_name}/{vers_name}")
         if counter > self.n_max_modules: break
 
-      logger.info(f"get_list_executables: succeeded")
+    logger.info(f"get_list_executables: succeeded")
 
     return litup
 

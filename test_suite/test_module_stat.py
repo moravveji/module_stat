@@ -27,6 +27,7 @@ def test_get_list_executables():
     n_exec    = len(list_exec)
     logger.info('We found {0} distinct executables'.format(n_exec))
     print('We found {0} distinct executables'.format(n_exec))
+    print(list_exec)
 
 ###########################################################
 def test_module_stat_used_one():
