@@ -307,7 +307,7 @@ class stats:
 
 
       list_bin_dirs = find_bindir_recursively(path)
-      print(list_bin_dirs[:10])
+      logger.info('E.g. {0}'.format(list_bin_dirs[0]))
       sys.exit(1)
 
 
