@@ -296,7 +296,10 @@ class stats:
       """ Extract the module name and version  name from the full path to the bin folder """
       tups = list()
       for dir in dirs:
+        if not dir: continue
+        if dir == '.': continue
         parts   = dir.split('/')
+        logger.info('{0}'.format(parts))
         module  = parts[-3]
         version = parts[-2]
         tups.append((module, version))
@@ -320,9 +323,11 @@ class stats:
 
       # Fetch the list of full paths to bin/bin64 folders recursively
       list_bin_dirs = find_bindir_recursively(path)
+      logger.info(f"get_list_executables: find_bindir_recursively succeeded for toolchain {toolchain}a")
 
       # Convert the list of paths to tuples of (module_name, version)
       list_tup_modules = parse_bin_dirs(list_bin_dirs)
+      logger.info(f"get_list_executables: parse_bin_dirs succeeded for toolchain {toolchain}a")
 
       # Glob and parse the executables inside bin/bin64 folders
       for k, tup in enumerate(list_tup_modules):
@@ -337,6 +342,8 @@ class stats:
         counter += 1
         logger.info(f"{counter}: parsed module: {module_name}/{vers_name}")
         if counter > self.n_max_modules: break
+
+      logger.info(f"get_list_executables: succeeded")
 
     return litup
 
