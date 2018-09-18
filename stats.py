@@ -281,7 +281,7 @@ class stats:
     def find_bindir_recursively(path):
       """ Find bin/bin64 folders recursively under the "path" directory """
       cmnd = 'find {0} -type d \( -name bin -o -name bin64 \)'.format(path)
-      proc = subprocess.Popen(cmnd, shell=True, STDOUT=subprocess.PIPE, stderr=subprocess.PIPE)
+      proc = subprocess.Popen(cmnd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
       stdout, stderr = proc.communicate()
       if not stdout:
         logger.warning('find_bindir_recursively: found no bin/bin64 folders')
