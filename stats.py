@@ -218,7 +218,8 @@ class stats:
       + case a. The software has a bin/bin64 folder (or both), just right under the version folder
       + case b. The software might have a bin/bin64 (or both), but they are buried under folder
                 hierarchy, or there are multiple bin/bin64 folders available for a single version
-    We treat both cases here.
+    We treat both cases here with the following shell command:
+    $> find /path/to/software/directory -type d \( -name bin -o -name bin64 \)
 
     Note: calling this public method takes few minutes, so, one may write the outcome as an ASCII
           file and recycle that file later on. This ASCII file must be updated once in a while.
@@ -241,10 +242,6 @@ class stats:
     litup = list() # list of tuples, hence litup
 
     #%%%%%%%%%%%%%%%%%%
-    def print_this(ex, k, v):
-      """ just define a local printing convenience function """
-      print('{0}: {1}, {2}'.format(ex, k, v))
-    #%%%%%%%%%%%%%%%%%%
 
     def append_to_list(tc, mod, vers, ex):
       """ append the tuple (toolchain, module_name, version_name, exec_name) to the list "litup" """
@@ -264,7 +261,9 @@ class stats:
       flag_bat = '.bat' in ex
       flags    = [flag_dat, flag_txt, flag_so, flag_conf, flag_cmd,
                   flag_jar, flag_tar, flag_gz, flag_bat]
-      if not any(flags): litup.append( (tc, mod, vers, ex) )
+
+      if not any(flags):
+        litup.append( (tc, mod, vers, ex) )
 
     #%%%%%%%%%%%%%%%%%%
 
@@ -293,6 +292,19 @@ class stats:
 
     #%%%%%%%%%%%%%%%%%%
 
+    def parse_bin_dirs(dirs):
+      """ Extract the module name and version  name from the full path to the bin folder """
+      tups = list()
+      for dir in dirs:
+        parts   = dir.split('/')
+        module  = parts[-3]
+        version = parts[-2]
+        tups.append((module, version))
+
+      return tups
+
+    #%%%%%%%%%%%%%%%%%%
+
     # exclude modules that have no bin/bin64 folders in them
     exclude = set(['bin', 'accounting', 'intel_env', 'foss_env'])
     for toolchain in self.avail_toolchain:
@@ -306,78 +318,24 @@ class stats:
       # local counter to stop the for-loop if number of found modules exceeds n_max_modules
       counter = 0
 
-
+      # Fetch the list of full paths to bin/bin64 folders recursively
       list_bin_dirs = find_bindir_recursively(path)
-      logger.info('E.g. {0}'.format(list_bin_dirs))
-      logger.info('\n{0} \n'.format(list_bin_dirs[:20]))
-      logger.info(len(list_bin_dirs), type(list_bin_dirs))
-      sys.exit(1)
 
+      # Convert the list of paths to tuples of (module_name, version)
+      list_tup_modules = parse_bin_dirs(list_bin_dirs)
 
-
-
-
-      for mod in dirs:
-        module_name = os.path.basename(mod)
+      # Glob and parse the executables inside bin/bin64 folders
+      for k, tup in enumerate(list_tup_modules):
+        module_name, vers_name = tup
         if module_name in exclude: continue
-        module_vers = glob.glob(mod + '/*')
 
-        for vers in module_vers:
-          vers_name = os.path.basename(vers)
-          bin_path  = '{0}/bin'.format(vers)
-          bin64_path= '{0}/bin64'.format(vers)
-
-          # Case a. The version folder already has bin/bin64 folder
-          # executables in bin
-          if os.path.exists(bin_path): 
-            exec_files = glob.glob(bin_path + '/*')
-            # key: exec filename, key: module name
-            parse_exec_files(toolchain, module_name, vers_name, exec_files)
-
-          # executables in bin64
-          elif os.path.exists(bin64_path):
-            exec_files = glob.glob(bin64_path + '/*')
-            # key: exec filename; key: module name
-            parse_exec_files(toolchain, module_name, vers_name, exec_files)
-
-          # Case b. the bin/bin64 folder is located few levels deeper in the directory tree!
-          else: 
-
-
-#            continue
-
-
-
-
-            # this finds the bin/bin64 folder, and all other junk; so, needs trimming later on
-#            maybe_bin_dirs = glob.glob(vers + '/**/bin*', recursive=True)
-            maybe_bin_dirs = glob.glob(vers + '/bin*'+os.sep, recursive=True)
-       
-
-
-
-            if not maybe_bin_dirs: continue # has no bin/bin64 at all
-            print('-> bin dir? {0}'.format(maybe_bin_dirs) )
-            list_bin_dirs  = []
-            for bin_dir in maybe_bin_dirs:
-              bin_dirname = os.path.basename(bin_dir) 
-              if bin_dirname == 'bin' or bin_dirname == 'bin64': list_bin_dirs.append(bin_dir)
-            if not list_bin_dirs: continue  # no bin/bin64 folders found
-            # Now, collect the executables from these buried bin/bin64 folders
-            for bin_dir in list_bin_dirs:
-              exec_files = glob.glob(bin_dir + '/*')
-              parse_exec_files(toolchain, module_name, vers_name, exec_files)
-  
-
-
-              print(' |-->> ', toolchain, module_name, vers_name, exec_name)
-
-
-
+        bin_dir = list_bin_dirs[k]
+        exec_files = glob.glob(bin_dir + '/*')
+        parse_exec_files(toolchain, module_name, vers_name, exec_files)
 
         # Counting found modules
         counter += 1
-        print('{0}: finished with module: {1}'.format(counter, module_name))
+        logger.info(f"{counter}: parsed module: {module_name}/{vers_name}")
         if counter > self.n_max_modules: break
 
     return litup
