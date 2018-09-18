@@ -85,7 +85,7 @@ class stats:
     self.__set_dir_apps()
 
     # Currently available modules/software
-    self.avail_toolchain = [2014, 2015, 2016, 2018]
+    self.avail_toolchain = [2016] #  [2014, 2015, 2016, 2018]
     self.avail_modules   = {toolchain: list() for toolchain in self.avail_toolchain}
     self.executables     = dict()
     self.list_executables= list()
